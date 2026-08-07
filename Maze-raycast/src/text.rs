@@ -1,0 +1,89 @@
+use crate::framebuffer::Framebuffer;
+
+const GLYPH_W: usize = 5;
+const GLYPH_H: usize = 7;
+
+fn glyph(c: char) -> [&'static str; GLYPH_H] {
+    match c.to_ascii_uppercase() {
+        'A' => [".###.", "#...#", "#...#", "#####", "#...#", "#...#", "#...#"],
+        'C' => [".####", "#....", "#....", "#....", "#....", "#....", ".####"],
+        'D' => ["####.", "#...#", "#...#", "#...#", "#...#", "#...#", "####."],
+        'E' => ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
+        'I' => ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "#####"],
+        'L' => ["#....", "#....", "#....", "#....", "#....", "#....", "#####"],
+        'M' => ["#...#", "##.##", "#.#.#", "#...#", "#...#", "#...#", "#...#"],
+        'N' => ["#...#", "##..#", "#.#.#", "#..##", "#...#", "#...#", "#...#"],
+        'O' => [".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+        'P' => ["####.", "#...#", "#...#", "####.", "#....", "#....", "#...."],
+        'R' => ["####.", "#...#", "#...#", "####.", "#..#.", "#...#", "#...#"],
+        'S' => [".####", "#....", "#....", ".###.", "....#", "....#", "####."],
+        'T' => ["#####", "..#..", "..#..", "..#..", "..#..", "..#..", "..#.."],
+        'U' => ["#...#", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+        'Z' => ["#####", "....#", "...#.", "..#..", ".#...", "#....", "#####"],
+        '!' => ["..#..", "..#..", "..#..", "..#..", "..#..", ".....", "..#.."],
+        _ => [".....", ".....", ".....", ".....", ".....", ".....", "....."],
+    }
+}
+
+pub fn draw_text(fb: &mut Framebuffer, text: &str, x: usize, y: usize, scale: usize, color: u32) {
+    let mut cx = x;
+    for ch in text.chars() {
+        let rows = glyph(ch);
+        for (row, line) in rows.iter().enumerate() {
+            for (col, px) in line.chars().enumerate() {
+                if px == '#' {
+                    for sy in 0..scale {
+                        for sx in 0..scale {
+                            fb.set_pixel(cx + col * scale + sx, y + row * scale + sy, color);
+                        }
+                    }
+                }
+            }
+        }
+        cx += (GLYPH_W + 1) * scale;
+    }
+}
+
+pub fn text_width(text: &str, scale: usize) -> usize {
+    text.chars().count() * (GLYPH_W + 1) * scale
+}
+
+pub fn draw_centered_banner(fb: &mut Framebuffer, lines: &[&str], scale: usize) {
+    let line_height = (GLYPH_H + 2) * scale;
+    let box_h = line_height * lines.len() + 20;
+    let box_w = lines
+        .iter()
+        .map(|l| text_width(l, scale))
+        .max()
+        .unwrap_or(0)
+        + 40;
+
+    if box_w > fb.width || box_h > fb.height {
+        return;
+    }
+
+    let box_x = (fb.width - box_w) / 2;
+    let box_y = (fb.height - box_h) / 2;
+
+    for y in 0..box_h {
+        for x in 0..box_w {
+            fb.set_pixel(box_x + x, box_y + y, 0x101018);
+        }
+    }
+
+    for x in 0..box_w {
+        fb.set_pixel(box_x + x, box_y, 0xffdd33);
+        fb.set_pixel(box_x + x, box_y + box_h - 1, 0xffdd33);
+    }
+    for y in 0..box_h {
+        fb.set_pixel(box_x, box_y + y, 0xffdd33);
+        fb.set_pixel(box_x + box_w - 1, box_y + y, 0xffdd33);
+    }
+
+    for (i, line) in lines.iter().enumerate() {
+        let lw = text_width(line, scale);
+        let lx = box_x + (box_w - lw) / 2;
+        let ly = box_y + 10 + i * line_height;
+        draw_text(fb, line, lx, ly, scale, 0xffffff);
+    }
+}
