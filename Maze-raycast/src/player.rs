@@ -1,6 +1,10 @@
 use minifb::{Key, MouseMode, Window};
 
+use crate::gamepad::GamepadState;
 use crate::maze::Maze;
+
+const GAMEPAD_MOVE_SPEED_SCALE: f32 = 1.0;
+const GAMEPAD_TURN_SPEED: f32 = 3.0;
 
 pub struct Player {
     pub x: f32,
@@ -24,13 +28,21 @@ impl Player {
         }
     }
 
-    pub fn update(&mut self, window: &Window, maze: &Maze, dt: f32, last_mouse_x: &mut f32) {
+    pub fn update(
+        &mut self,
+        window: &Window,
+        maze: &Maze,
+        dt: f32,
+        last_mouse_x: &mut f32,
+        gamepad: GamepadState,
+    ) {
         if window.is_key_down(Key::Left) || window.is_key_down(Key::A) {
             self.angle -= ROT_SPEED * dt;
         }
         if window.is_key_down(Key::Right) || window.is_key_down(Key::D) {
             self.angle += ROT_SPEED * dt;
         }
+        self.angle += gamepad.turn_axis * GAMEPAD_TURN_SPEED * dt;
 
         if let Some((mx, _my)) = window.get_mouse_pos(MouseMode::Pass) {
             let delta = mx - *last_mouse_x;
@@ -47,6 +59,10 @@ impl Player {
         if window.is_key_down(Key::S) {
             move_x -= self.angle.cos();
             move_y -= self.angle.sin();
+        }
+        if gamepad.move_axis.abs() > 0.0 {
+            move_x += self.angle.cos() * gamepad.move_axis * GAMEPAD_MOVE_SPEED_SCALE;
+            move_y += self.angle.sin() * gamepad.move_axis * GAMEPAD_MOVE_SPEED_SCALE;
         }
 
         let step = MOVE_SPEED * dt;

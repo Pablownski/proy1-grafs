@@ -4,6 +4,9 @@ use std::collections::VecDeque;
 const LOGICAL_COLS: usize = 12;
 const LOGICAL_ROWS: usize = 9;
 
+pub const LEVEL_SEEDS: [u32; 3] = [0x1234_5678, 0x9e37_79b9, 0x85eb_ca6b];
+pub const LEVEL_NAMES: [&str; 3] = ["NIVEL 1", "NIVEL 2", "NIVEL 3"];
+
 pub struct Maze {
     
     pub cells: Vec<Vec<u8>>,
@@ -31,13 +34,13 @@ impl Rng {
 }
 
 impl Maze {
-    pub fn generate() -> Self {
+    pub fn generate(seed: u32) -> Self {
         let width = LOGICAL_COLS * 2 + 1;
         let height = LOGICAL_ROWS * 2 + 1;
 
         let mut cells = vec![vec![1u8; width]; height];
         let mut visited = vec![vec![false; LOGICAL_COLS]; LOGICAL_ROWS];
-        let mut rng = Rng(0x1234_5678);
+        let mut rng = Rng(seed);
 
         let mut stack = vec![(0usize, 0usize)];
         visited[0][0] = true;
@@ -159,5 +162,68 @@ impl Maze {
 
     pub fn is_goal(&self, x: f32, y: f32) -> bool {
         (x.floor() as usize, y.floor() as usize) == self.goal
+    }
+
+    /// Angle the player should start facing so they look down an open
+    /// corridor instead of straight into a wall.
+    pub fn spawn_facing_angle(&self) -> f32 {
+        let cx = self.spawn.0.floor() as i32;
+        let cy = self.spawn.1.floor() as i32;
+
+        const DIRS: [(i32, i32, f32); 4] = [
+            (1, 0, 0.0),
+            (0, 1, std::f32::consts::FRAC_PI_2),
+            (-1, 0, std::f32::consts::PI),
+            (0, -1, -std::f32::consts::FRAC_PI_2),
+        ];
+
+        for (dx, dy, angle) in DIRS {
+            if !self.is_wall(cx + dx, cy + dy) {
+                return angle;
+            }
+        }
+        0.0
+    }
+
+    /// Picks a couple of open cells along the spawn->goal path (roughly at
+    /// 1/3 and 2/3 of the way) to place collectible sprites on.
+    pub fn sprite_cells(&self) -> Vec<(f32, f32)> {
+        let spawn = (self.spawn.0.floor() as usize, self.spawn.1.floor() as usize);
+        let mut dist = vec![vec![-1i32; self.width]; self.height];
+        let mut queue = VecDeque::new();
+        dist[spawn.1][spawn.0] = 0;
+        queue.push_back(spawn);
+
+        let mut ordered = vec![spawn];
+        while let Some((x, y)) = queue.pop_front() {
+            let d = dist[y][x];
+            let candidates = [
+                (x.wrapping_sub(1), y),
+                (x + 1, y),
+                (x, y.wrapping_sub(1)),
+                (x, y + 1),
+            ];
+            for (nx, ny) in candidates {
+                if nx < self.width && ny < self.height && self.cells[ny][nx] == 0 && dist[ny][nx] == -1
+                {
+                    dist[ny][nx] = d + 1;
+                    queue.push_back((nx, ny));
+                    ordered.push((nx, ny));
+                }
+            }
+        }
+
+        let goal_dist = dist[self.goal.1][self.goal.0].max(1);
+        let targets = [goal_dist / 3, goal_dist * 2 / 3];
+        targets
+            .iter()
+            .filter_map(|&t| {
+                ordered
+                    .iter()
+                    .filter(|&&(x, y)| (x, y) != spawn && (x, y) != self.goal)
+                    .min_by_key(|&&(x, y)| (dist[y][x] - t).abs())
+                    .map(|&(x, y)| (x as f32 + 0.5, y as f32 + 0.5))
+            })
+            .collect()
     }
 }

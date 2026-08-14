@@ -2,6 +2,7 @@ use crate::framebuffer::Framebuffer;
 use crate::maze::Maze;
 use crate::player::Player;
 use crate::raycaster::cast_ray;
+use crate::skybox::Skybox;
 
 const CEILING_COLOR: u32 = 0x33334d;
 const FLOOR_COLOR: u32 = 0x2b2b2b;
@@ -27,32 +28,46 @@ fn shade(color: (f32, f32, f32), side: u8, dist: f32) -> u32 {
     (r << 16) | (g << 8) | b
 }
 
-pub fn render(fb: &mut Framebuffer, maze: &Maze, player: &Player) {
+pub fn render(
+    fb: &mut Framebuffer,
+    maze: &Maze,
+    player: &Player,
+    depth_buffer: &mut Vec<f32>,
+    skybox: Option<&Skybox>,
+) {
     let w = fb.width;
     let h = fb.height;
 
-    for y in 0..h / 2 {
-        for x in 0..w {
-            fb.set_pixel(x, y, CEILING_COLOR);
-        }
-    }
-    for y in h / 2..h {
-        for x in 0..w {
-            fb.set_pixel(x, y, FLOOR_COLOR);
-        }
-    }
+    depth_buffer.clear();
+    depth_buffer.resize(w, f32::INFINITY);
 
     for x in 0..w {
-        let camera_x = x as f32 / w as f32; 
+        let camera_x = x as f32 / w as f32;
         let ray_angle = player.angle - player.fov / 2.0 + player.fov * camera_x;
 
         let hit = cast_ray(maze, player.x, player.y, ray_angle);
 
         let corrected_dist = (hit.dist * (ray_angle - player.angle).cos()).max(0.0001);
+        depth_buffer[x] = corrected_dist;
 
         let line_height = (h as f32 / corrected_dist) as i32;
         let draw_start = (-line_height / 2 + h as i32 / 2).max(0) as usize;
         let draw_end = (line_height / 2 + h as i32 / 2).min(h as i32 - 1) as usize;
+
+        match skybox {
+            Some(sky) => {
+                let u = ray_angle / std::f32::consts::TAU;
+                for y in 0..draw_start {
+                    let v = y as f32 / (h as f32 / 2.0);
+                    fb.set_pixel(x, y, sky.sample(u, v));
+                }
+            }
+            None => fb.draw_vline(x, 0, draw_start.saturating_sub(1), CEILING_COLOR),
+        }
+
+        for y in (draw_end + 1)..h {
+            fb.set_pixel(x, y, FLOOR_COLOR);
+        }
 
         let color = shade(base_color(hit.wall_type), hit.side, corrected_dist);
         fb.draw_vline(x, draw_start, draw_end, color);

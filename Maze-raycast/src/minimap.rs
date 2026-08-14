@@ -2,7 +2,8 @@ use crate::framebuffer::Framebuffer;
 use crate::maze::Maze;
 use crate::player::Player;
 
-const CELL_PX: usize = 5;
+const CELL_PX_SMALL: usize = 5;
+const CELL_PX_LARGE: usize = 16;
 const MARGIN: usize = 12;
 const BG_COLOR: u32 = 0x0d0d12;
 const BORDER_COLOR: u32 = 0xe0e0e0;
@@ -19,16 +20,28 @@ fn wall_color(wall_type: u8) -> u32 {
     }
 }
 
-pub fn draw_minimap(fb: &mut Framebuffer, maze: &Maze, player: &Player) {
-    let map_w = maze.width * CELL_PX;
-    let map_h = maze.height * CELL_PX;
+pub fn draw_minimap(fb: &mut Framebuffer, maze: &Maze, player: &Player, large: bool) {
+    let cell_px = if large { CELL_PX_LARGE } else { CELL_PX_SMALL };
+    let map_w = maze.width * cell_px;
+    let map_h = maze.height * cell_px;
 
     if map_w + 2 * MARGIN > fb.width || map_h + 2 * MARGIN > fb.height {
-        return; 
+        return;
     }
 
-    let ox = fb.width - map_w - MARGIN;
-    let oy = MARGIN;
+    let (ox, oy) = if large {
+        ((fb.width - map_w) / 2, (fb.height - map_h) / 2)
+    } else {
+        (fb.width - map_w - MARGIN, MARGIN)
+    };
+
+    if large {
+        for y in 0..fb.height {
+            for x in 0..fb.width {
+                fb.set_pixel(x, y, 0x000000);
+            }
+        }
+    }
 
     for y in 0..map_h + 4 {
         for x in 0..map_w + 4 {
@@ -48,31 +61,32 @@ pub fn draw_minimap(fb: &mut Framebuffer, maze: &Maze, player: &Player) {
                 continue;
             }
             let color = wall_color(cell);
-            for py in 0..CELL_PX {
-                for px in 0..CELL_PX {
-                    fb.set_pixel(ox + cx * CELL_PX + px, oy + cy * CELL_PX + py, color);
+            for py in 0..cell_px {
+                for px in 0..cell_px {
+                    fb.set_pixel(ox + cx * cell_px + px, oy + cy * cell_px + py, color);
                 }
             }
         }
     }
 
     let (gx, gy) = maze.goal;
-    for py in 0..CELL_PX {
-        for px in 0..CELL_PX {
-            fb.set_pixel(ox + gx * CELL_PX + px, oy + gy * CELL_PX + py, 0x22ff22);
+    for py in 0..cell_px {
+        for px in 0..cell_px {
+            fb.set_pixel(ox + gx * cell_px + px, oy + gy * cell_px + py, 0x22ff22);
         }
     }
 
-    let px = ox as f32 + player.x * CELL_PX as f32;
-    let py = oy as f32 + player.y * CELL_PX as f32;
+    let px = ox as f32 + player.x * cell_px as f32;
+    let py = oy as f32 + player.y * cell_px as f32;
 
-    for dy in -1i32..=1 {
-        for dx in -1i32..=1 {
+    let player_radius = if large { 3i32 } else { 1i32 };
+    for dy in -player_radius..=player_radius {
+        for dx in -player_radius..=player_radius {
             fb.set_pixel((px as i32 + dx).max(0) as usize, (py as i32 + dy).max(0) as usize, PLAYER_COLOR);
         }
     }
 
-    let dir_len = CELL_PX as f32 * 1.5;
+    let dir_len = cell_px as f32 * 1.5;
     let steps = dir_len as i32;
     for i in 0..steps {
         let t = i as f32;
