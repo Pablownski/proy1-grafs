@@ -33,7 +33,7 @@ const MUSIC_PATH: &str = "assets/Taylor Swift - Shake It Off.mp3";
 const SFX_WIN_PATH: &str = "assets/sfx_win.mp3";
 const SKYBOX_PATH: &str = "assets/skybox/skybox-space.png";
 const FLOOR_TEXTURE_PATH: &str = "assets/piso.png";
-const WALL_TEXTURE_PATH: &str = "assets/cr7.png";
+const WALL_TEXTURE_PATHS: [&str; 2] = ["assets/cr7.png", "assets/cr7_2.png"];
 
 #[derive(PartialEq)]
 enum GameState {
@@ -69,7 +69,10 @@ fn main() {
     let mut gamepad_input = GamepadInput::new();
     let skybox = Skybox::load(SKYBOX_PATH);
     let floor_texture = Texture::load(FLOOR_TEXTURE_PATH);
-    let wall_texture = Texture::load(WALL_TEXTURE_PATH);
+    let wall_textures: Vec<Texture> = WALL_TEXTURE_PATHS
+        .iter()
+        .filter_map(|path| Texture::load(path))
+        .collect();
 
     let mut selected_level = 0usize;
     let mut state = GameState::Welcome;
@@ -141,7 +144,7 @@ fn main() {
                     &mut depth_buffer,
                     skybox.as_ref(),
                     floor_texture.as_ref(),
-                    wall_texture.as_ref(),
+                    &wall_textures,
                 );
                 sprite::draw_sprites(&mut framebuffer, &player, &sprites, &depth_buffer, time);
                 minimap::draw_minimap(&mut framebuffer, &maze, &player, map_large);
@@ -171,7 +174,7 @@ fn main() {
                     &mut depth_buffer,
                     skybox.as_ref(),
                     floor_texture.as_ref(),
-                    wall_texture.as_ref(),
+                    &wall_textures,
                 );
                 sprite::draw_sprites(&mut framebuffer, &player, &sprites, &depth_buffer, time);
                 minimap::draw_minimap(&mut framebuffer, &maze, &player, map_large);

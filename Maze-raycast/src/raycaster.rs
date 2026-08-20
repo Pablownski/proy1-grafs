@@ -6,6 +6,8 @@ pub struct RayHit {
     pub side: u8,
     /// Fractional position across the hit wall face, in [0, 1). Used for texture mapping.
     pub wall_x: f32,
+    pub map_x: i32,
+    pub map_y: i32,
 }
 
 pub fn cast_ray(maze: &Maze, ox: f32, oy: f32, angle: f32) -> RayHit {
@@ -73,5 +75,7 @@ pub fn cast_ray(maze: &Maze, ox: f32, oy: f32, angle: f32) -> RayHit {
         wall_type: maze.wall_type(map_x, map_y),
         side,
         wall_x,
+        map_x,
+        map_y,
     }
 }

@@ -55,7 +55,7 @@ pub fn render(
     depth_buffer: &mut Vec<f32>,
     skybox: Option<&Skybox>,
     floor_texture: Option<&Texture>,
-    wall_texture: Option<&Texture>,
+    wall_textures: &[Texture],
 ) {
     let w = fb.width;
     let h = fb.height;
@@ -109,6 +109,13 @@ pub fn render(
                 }
             }
         }
+
+        let wall_texture = if wall_textures.is_empty() {
+            None
+        } else {
+            let idx = (hit.map_x + hit.map_y).rem_euclid(wall_textures.len() as i32) as usize;
+            Some(&wall_textures[idx])
+        };
 
         match wall_texture {
             Some(tex) => {
