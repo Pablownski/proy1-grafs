@@ -9,6 +9,7 @@ mod render;
 mod skybox;
 mod sprite;
 mod text;
+mod texture;
 mod welcome;
 
 use std::time::Instant;
@@ -22,6 +23,7 @@ use maze::{Maze, LEVEL_SEEDS};
 use player::Player;
 use skybox::Skybox;
 use sprite::Sprite;
+use texture::Texture;
 
 const WIDTH: usize = 1024;
 const HEIGHT: usize = 768;
@@ -30,6 +32,8 @@ const FPS_OPTIONS: [usize; 3] = [30, 60, 120];
 const MUSIC_PATH: &str = "assets/Taylor Swift - Shake It Off.mp3";
 const SFX_WIN_PATH: &str = "assets/sfx_win.mp3";
 const SKYBOX_PATH: &str = "assets/skybox/skybox-space.png";
+const FLOOR_TEXTURE_PATH: &str = "assets/piso.png";
+const WALL_TEXTURE_PATH: &str = "assets/cr7.png";
 
 #[derive(PartialEq)]
 enum GameState {
@@ -64,6 +68,8 @@ fn main() {
 
     let mut gamepad_input = GamepadInput::new();
     let skybox = Skybox::load(SKYBOX_PATH);
+    let floor_texture = Texture::load(FLOOR_TEXTURE_PATH);
+    let wall_texture = Texture::load(WALL_TEXTURE_PATH);
 
     let mut selected_level = 0usize;
     let mut state = GameState::Welcome;
@@ -101,13 +107,13 @@ fn main() {
                 if window.is_key_pressed(Key::Key3, KeyRepeat::No) {
                     selected_level = 2;
                 }
-                if window.is_key_pressed(Key::Down, KeyRepeat::Yes) {
+                if window.is_key_pressed(Key::Down, KeyRepeat::Yes) || gp_state.down_pressed {
                     selected_level = (selected_level + 1) % LEVEL_SEEDS.len();
                 }
-                if window.is_key_pressed(Key::Up, KeyRepeat::Yes) {
+                if window.is_key_pressed(Key::Up, KeyRepeat::Yes) || gp_state.up_pressed {
                     selected_level = (selected_level + LEVEL_SEEDS.len() - 1) % LEVEL_SEEDS.len();
                 }
-                if window.is_key_pressed(Key::Enter, KeyRepeat::No) {
+                if window.is_key_pressed(Key::Enter, KeyRepeat::No) || gp_state.confirm_pressed {
                     (maze, player, sprites) = start_level(selected_level);
                     state = GameState::Playing;
                 }
@@ -115,7 +121,7 @@ fn main() {
                 welcome::draw_welcome_screen(&mut framebuffer, selected_level);
             }
             GameState::Playing => {
-                if window.is_key_pressed(Key::M, KeyRepeat::No) {
+                if window.is_key_pressed(Key::M, KeyRepeat::No) || gp_state.map_toggle_pressed {
                     map_large = !map_large;
                 }
 
@@ -128,18 +134,26 @@ fn main() {
                 }
 
                 framebuffer.clear();
-                render::render(&mut framebuffer, &maze, &player, &mut depth_buffer, skybox.as_ref());
+                render::render(
+                    &mut framebuffer,
+                    &maze,
+                    &player,
+                    &mut depth_buffer,
+                    skybox.as_ref(),
+                    floor_texture.as_ref(),
+                    wall_texture.as_ref(),
+                );
                 sprite::draw_sprites(&mut framebuffer, &player, &sprites, &depth_buffer, time);
                 minimap::draw_minimap(&mut framebuffer, &maze, &player, map_large);
             }
             GameState::Won => {
-                if window.is_key_pressed(Key::M, KeyRepeat::No) {
+                if window.is_key_pressed(Key::M, KeyRepeat::No) || gp_state.map_toggle_pressed {
                     map_large = !map_large;
                 }
 
                 let has_next_level = selected_level + 1 < LEVEL_SEEDS.len();
 
-                if window.is_key_pressed(Key::Enter, KeyRepeat::No) {
+                if window.is_key_pressed(Key::Enter, KeyRepeat::No) || gp_state.confirm_pressed {
                     if has_next_level {
                         selected_level += 1;
                         (maze, player, sprites) = start_level(selected_level);
@@ -150,7 +164,15 @@ fn main() {
                 }
 
                 framebuffer.clear();
-                render::render(&mut framebuffer, &maze, &player, &mut depth_buffer, skybox.as_ref());
+                render::render(
+                    &mut framebuffer,
+                    &maze,
+                    &player,
+                    &mut depth_buffer,
+                    skybox.as_ref(),
+                    floor_texture.as_ref(),
+                    wall_texture.as_ref(),
+                );
                 sprite::draw_sprites(&mut framebuffer, &player, &sprites, &depth_buffer, time);
                 minimap::draw_minimap(&mut framebuffer, &maze, &player, map_large);
 

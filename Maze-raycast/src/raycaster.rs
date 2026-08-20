@@ -4,6 +4,8 @@ pub struct RayHit {
     pub dist: f32,
     pub wall_type: u8,
     pub side: u8,
+    /// Fractional position across the hit wall face, in [0, 1). Used for texture mapping.
+    pub wall_x: f32,
 }
 
 pub fn cast_ray(maze: &Maze, ox: f32, oy: f32, angle: f32) -> RayHit {
@@ -57,10 +59,19 @@ pub fn cast_ray(maze: &Maze, ox: f32, oy: f32, angle: f32) -> RayHit {
     } else {
         (map_y as f32 - oy + (1 - step_y) as f32 / 2.0) / ray_dir_y
     };
+    let dist = dist.abs();
+
+    let wall_x = if side == 0 {
+        oy + dist * ray_dir_y
+    } else {
+        ox + dist * ray_dir_x
+    };
+    let wall_x = wall_x - wall_x.floor();
 
     RayHit {
-        dist: dist.abs(),
+        dist,
         wall_type: maze.wall_type(map_x, map_y),
         side,
+        wall_x,
     }
 }
